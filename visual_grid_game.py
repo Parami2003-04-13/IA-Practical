@@ -230,9 +230,9 @@ class GridGameGUI:
         self.btn.config(state="disabled")
         
         # Instantiate SearchAgent and configure the algorithm here:
-        # Options: 'BFS', 'DFS', or 'UCS'
+        # Options: 'BFS', 'DFS', 'UCS', 'AStar'
         from agent import SearchAgent
-        agent = SearchAgent(active_algo='UCS')
+        agent = SearchAgent(active_algo='AStar')
 
         def step():
             if not self.env.is_done():

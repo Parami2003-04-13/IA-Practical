@@ -1,6 +1,7 @@
 from collections import defaultdict
 import heapq
 from collections import deque
+import math
 
 class SimpleReflexAgent:
     def sense_and_act(self, percept):
@@ -116,6 +117,17 @@ class SearchAgent:
         self.active_algo = active_algo  # 'BFS', 'DFS', or 'UCS'
         self.current_pos = (0, 0)
     
+    # Lab 4 - 1.1
+    def manhattan_distance(self, pos: tuple, goal: tuple) -> int:
+        x1, y1 = pos
+        x2, y2 = goal
+        return abs(x1 - x2) + abs(y1 - y2)
+
+    def euclidean_distance(self, pos: tuple, goal: tuple) -> float:
+        x1, y1 = pos
+        x2, y2 = goal
+        return math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
+    
     def sense_and_act(self, percept: dict) -> str:
         # If the current plan is exhausted, compute a new offline plan
         if not self.plan:
@@ -133,7 +145,24 @@ class SearchAgent:
                 self.plan = self.dfs_search(self.current_pos, all_food, grid_size, walls)
             elif self.active_algo == 'UCS':
                 self.plan = self.ucs_search(self.current_pos, all_food, grid_size, walls)
-
+            
+            # Lab 4 - 1.3
+            elif self.active_algo == 'AStar':
+          
+                # Find the closest food item using Manhattan distance as the target
+                closest_food = min(
+                    all_food,
+                    key=lambda food: self.manhattan_distance(self.current_pos, food),
+                )
+                
+                self.plan = self.astar_search(
+                    start_pos=self.current_pos,
+                    goal_pos=closest_food,
+                    walls=walls,
+                    grid_size=grid_size,
+                    heuristic_type='manhattan',
+          )
+          
             # Fallback if no path is reachable to any food
             if not self.plan:
                 return 'suck'
@@ -296,3 +325,75 @@ class SearchAgent:
                     heapq.heappush(frontier, (new_cost, next_state))
             
         return []
+    
+    # Lab 4 - 1.2
+    def astar_search(
+        self,
+        start_pos,
+        goal_pos,
+        walls,
+        grid_size,
+        heuristic_type='manhattan',
+    ):
+      walls = set(walls)
+      reached_states = set()
+
+      # Heuristic selector
+      if heuristic_type == 'euclidean':
+        heuristic_func = self.euclidean_distance
+      else:
+        heuristic_func = self.manhattan_distance
+
+      # Initial state setup: g(start) = 0, f(start) = 0 + h(start)
+      initial_g = 0
+      initial_h = heuristic_func(start_pos, goal_pos)
+      initial_f = initial_g + initial_h
+
+      # Frontier stores: (f_cost, g_cost, current_pos, path_taken)
+      frontier = [(initial_f, initial_g, start_pos, [])]
+
+      while frontier:
+        f_cost, g_cost, current_pos, path_taken = heapq.heappop(frontier)
+
+        # Goal check
+        if current_pos == goal_pos:
+          return path_taken
+
+        # Skip if state already reached
+        if current_pos in reached_states:
+          continue
+
+        reached_states.add(current_pos)
+
+        # Successor generation
+        for next_state, action, cost in self.get_successors(
+            current_pos, grid_size, walls
+        ):
+          if next_state not in reached_states:
+            g_new = g_cost + cost
+            h_new = heuristic_func(next_state, goal_pos)
+            f_new = g_new + h_new
+
+            heapq.heappush(
+                frontier, (f_new, g_new, next_state, path_taken + [action])
+            )
+
+      return []  # No path found
+
+
+if __name__ == "__main__":
+  agent = SearchAgent()
+  grid_size = (5, 5)
+  start = (0, 0)
+  goal = (3, 4)
+  walls = {(1, 1), (1, 2), (2, 2)}
+
+  path_manhattan = agent.astar_search(
+      start, goal, walls, grid_size, heuristic_type="manhattan"
+  )
+  path_euclidean = agent.astar_search(
+      start, goal, walls, grid_size, heuristic_type="euclidean"
+  )
+
+  print(f"Path (Manhattan): {path_manhattan}")
+  print(f"Path (Euclidean): {path_euclidean}")
