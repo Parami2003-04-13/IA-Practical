@@ -17,6 +17,26 @@ class KnowledgeBase:
         """Remove all facts from KB instead of rules."""
         self.facts.clear()
 
+    def forward_chain(self):
+        """
+        Deduce all possible conclusions from current facts using forward chaining.
+        Iterates over rules until a complete pass deduces no new facts.
+        """
+        new_facts_added = True
+
+        while new_facts_added:
+            new_facts_added = False
+
+            for premises, conclusion in self.rules:
+                # Check if the conclusion has already been derived
+                if conclusion not in self.facts:
+
+                    # Modus Ponens Check: verify if all premises are present in facts
+                    if all(premise in self.facts for premise in premises):
+                        self.facts.add(conclusion)
+                        new_facts_added = True
+
+
 if __name__ == "__main__":
     kb = KnowledgeBase()
     
@@ -30,3 +50,8 @@ if __name__ == "__main__":
     # Remove facts
     kb.clear_facts()
     print("Facts after clearing:", kb.facts)
+
+    # Run forward chaining inference
+    kb.forward_chain()
+
+    print("Inferred Facts:", kb.facts)
