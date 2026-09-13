@@ -1,6 +1,8 @@
 from collections import defaultdict
 import heapq
 from collections import deque
+from logic_engine import KnowledgeBase
+
 
 class SimpleReflexAgent:
     def sense_and_act(self, percept):
@@ -115,6 +117,18 @@ class SearchAgent:
         self.plan = []
         self.active_algo = active_algo  # 'BFS', 'DFS', or 'UCS'
         self.current_pos = (0, 0)
+
+        # lab 5 - 3.1
+
+         # Step 3.1: Instantiate KnowledgeBase
+        self.kb = KnowledgeBase()
+        
+        # Rule 1: TargetVisible ∧ HasDust ⇒ SafeToEngage
+        self.kb.tell_rule(["TargetVisible", "HasDust"], "SafeToEngage")
+        
+        # Rule 2: SafeToEngage ∧ BloodseekerMissing ⇒ Retreat                self.kb.tell_rule(["SafeToEngage", "BloodseekerMissing"], "Retreat")
+        self.kb.tell_rule(["SafeToEngage", "BloodseekerMissing"], "Retreat")
+
     
     def sense_and_act(self, percept: dict) -> str:
         # If the current plan is exhausted, compute a new offline plan
@@ -296,3 +310,107 @@ class SearchAgent:
                     heapq.heappush(frontier, (new_cost, next_state))
             
         return []
+
+    def astar_search(
+        self,
+        start_pos,
+        goal_pos,
+        walls,
+        grid_size,
+        heuristic_type='manhattan',
+
+        # lab 5 - 3.2
+        percepts=None,
+    ):
+      if percepts is None:
+            percepts = {}
+
+      walls = set(walls)
+      reached_states = set()
+
+      # Heuristic selector
+      if heuristic_type == 'euclidean':
+        heuristic_func = self.euclidean_distance
+      else:
+        heuristic_func = self.manhattan_distance
+
+      # Initial state setup: g(start) = 0, f(start) = 0 + h(start)
+      initial_g = 0
+      initial_h = heuristic_func(start_pos, goal_pos)
+      initial_f = initial_g + initial_h
+
+      # Frontier stores: (f_cost, g_cost, current_pos, path_taken)
+      frontier = [(initial_f, initial_g, start_pos, [])]
+
+      while frontier:
+        f_cost, g_cost, current_pos, path_taken = heapq.heappop(frontier)
+
+        # Goal check
+        if current_pos == goal_pos:
+          return path_taken
+
+        # Skip if state already reached
+        if current_pos in reached_states:
+          continue
+
+        reached_states.add(current_pos)
+
+        # Successor generation
+        for next_state, action, cost in self.get_successors(
+            current_pos, grid_size, walls
+        ):
+          if next_state in reached_states:
+            continue
+
+          # lab 5 - 3.2
+          # 1. Clear KB facts before evaluating this tile
+          self.kb.clear_facts()
+
+          # 2. Extract percepts for next_state (tile) and feed them to KB
+          # Example: percepts can be a dict like {(1, 2): ["TargetVisible", "HasDust", "BloodseekerMissing"]}
+          tile_percepts = percepts.get(next_state, [])
+          for fact in tile_percepts:
+            self.kb.tell_fact(fact)
+
+          # 3. Run Forward Chaining inference
+          self.kb.forward_chain()
+
+          # 4. If logically inferred as 'Retreat', skip this tile
+          if "Retreat" in self.kb.facts:
+            continue
+          
+            g_new = g_cost + cost
+            h_new = heuristic_func(next_state, goal_pos)
+            f_new = g_new + h_new
+
+            heapq.heappush(
+                frontier, (f_new, g_new, next_state, path_taken + [action])
+            )
+
+      return []  # No path found
+
+
+if __name__ == "__main__":
+  agent = SearchAgent()
+  grid_size = (5, 5)
+  start = (0, 0)
+  goal = (3, 4)
+  walls = {(1, 1), (1, 2), (2, 2)}
+
+  path_manhattan = agent.astar_search(
+      start, goal, walls, grid_size, heuristic_type="manhattan"
+  )
+  path_euclidean = agent.astar_search(
+      start, goal, walls, grid_size, heuristic_type="euclidean"
+  )
+
+  test_percepts = {
+        (0, 1): ["TargetVisible", "HasDust", "BloodseekerMissing"]
+    }
+
+  path = agent.astar_search(
+      start, goal, walls, grid_size, heuristic_type="manhattan", percepts=test_percepts
+    )
+  print(f"Path (Manhattan): {path_manhattan}")
+  print(f"Path (Euclidean): {path_euclidean}")
+  print(f"Path avoiding feasible threats: {path}")

@@ -1,3 +1,5 @@
+# lab  4 - 1,2
+
 class KnowledgeBase:
     def __init__(self):
         # Set to store unique string facts 
